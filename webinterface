@@ -1,0 +1,75 @@
+#!perl
+
+=head1 NAME
+
+  Workplanning
+
+=cut
+
+our ($html, %FORM, $db, %conf, $admin, %lang);
+
+use Workplanning::db::Workplanning;
+my $Workplanning = Workplanning->new($db, $admin, \%conf);
+use Admins;
+my $Admins = Admins->new($db, \%conf);
+use Control::Address_mng;
+
+use Data::Dumper;
+use strict;
+
+#**********************************************************
+
+=head2 work_planning() - planning work
+
+=cut
+
+#**********************************************************
+
+sub work_planning {
+
+  my $date_for_picker = $DATE;
+  my $datepicker = $html->form_datepicker("DATE_OF_EXECUTION", $date_for_picker);
+  if ($FORM{ADD}) {
+    $Workplanning->add({ %FORM, });
+    $html->message("info", $lang{ADD_MASSAGE}, $lang{OPERATION});
+  }
+  if ($FORM{DELETE}) {
+    $Workplanning->del($FORM{DELETE});
+
+    $html->message("info", $lang{DELETE_MASSAGE}, $lang{OPERATION});
+  }
+
+  my $Admins_aid_list = $Admins->list({ COLS_NAME => 1 });
+  my $option;
+  my $admin_name;
+  foreach my $item (@$Admins_aid_list) {
+    $admin_name = $Admins->info($item->{aid});
+    $option .= "<option value='$item->{aid}'>$admin_name->{A_FIO}</option>";
+  }
+  my $builds = $html->tpl_show(templates('form_address_sel'), {FLAT_CHECK_FREE => 0, FLAT_CHECK_OCCUPIED => 0}, { OUTPUT2RETURN => 1, ID => 'form_address_sel' });
+  $html->tpl_show(_include("workplanning_add_form", "Workplanning"), { SUBMIT_BTN_ACTION => "ADD", DATE_OF_EXECUTION => $datepicker, CREATOR => $admin->{AID}, DATE_OF_CREATION => $DATE, OPTION => $option, BUILDS => $builds});
+
+  my $Workplanning_list = $Workplanning->list({ COLS_NAME => 1, DESC => "desc" });
+  my $table = $html->table(
+    {
+      width   => "100%",
+      caption => $lang{WORK_REPORT},
+      title   => [ "ID", $lang{DATE_OF_CREATION}, $lang{DATE_OF_EXECUTION}, $lang{RESPONSIBLE}, $lang{DESCRIPTION}, $lang{STATUS}, $lang{BUDGET}, $lang{SUBSCRIBER}, $lang{LOCATION}, $lang{COMMENT}, $lang{DESCRIPTION}, $lang{CREATOR}, "" ],
+      qs      => $pages_qs,
+      ID      => "TABLE_ID",
+      #MENU    => "$lang{ADD}:index=" . get_function_index('add_time') . "&add_form=1&$pages_qs:add",
+      export  => 1
+    }
+  );
+  foreach my $item (@$Workplanning_list) {
+    my $del_button  = $html->button("", "index=$index&DELETE=$item->{id}", { class => "text-danger", ADD_ICON => "glyphicon glyphicon-trash" });
+    my $edit_button = $html->button("", "index=$index&EDIT=$item->{id}",   { class => "",            ADD_ICON => "glyphicon glyphicon-pencil" });
+    $table->addrow(
+      $item->{id},         $item->{date_of_creation}, $item->{date_of_execution}, $Admins->info($item->{aid})->{A_FIO}, $item->{description},                     $item->{status}, $item->{budget},
+      $item->{subscriber}, $item->{builds_id},        $item->{comment},           $item->{description},                 $Admins->info($item->{creator})->{A_FIO}, "$edit_button$del_button"
+    );
+  }
+
+  print $table->show();
+
+}
