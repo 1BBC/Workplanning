@@ -81,7 +81,7 @@
         <div class='form-group'>
                 <label class='col-md-3 control-label' for='USER_LOGIN'>_{SUBSCRIBER}_:</label>
                 <div class='col-md-9'>
-                  <input type='hidden' name='UID' id='UID_HIDDEN' >
+                  <input type='hidden' name='UID' id='UID_HIDDEN' value="%UID%">
                   <div class='col-md-10'>
                     <input type='text' class='form-control' id='USER_LOGIN' value="%SUBSCRIBER%" readonly='readonly'>
                   </div>

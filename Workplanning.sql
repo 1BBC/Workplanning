@@ -6,11 +6,10 @@ CREATE TABLE IF NOT EXISTS `work_planning` (
 	`description` VARCHAR(255) DEFAULT '',
 	`status` SMALLINT(1) UNSIGNED NOT NULL DEFAULT 0,
 	`budget` FLOAT(24) UNSIGNED NOT NULL DEFAULT 0,
-	`subscriber` VARCHAR(60) DEFAULT '',
+	`uid` SMALLINT(1) NOT NULL DEFAULT 0,
 	`builds_id` SMALLINT(1) UNSIGNED NOT NULL DEFAULT 0,
 	`comment` VARCHAR(60) DEFAULT '',
 	`creator` SMALLINT(1) NOT NULL DEFAULT 0,
 	PRIMARY KEY (`id`)
 )
 COMMENT = 'Work planning';
-
