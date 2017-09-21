@@ -11,6 +11,13 @@ $lang{WORK_REPORT} = "Отчет по работам";
 $lang{CREATOR} = "Автор";
 $lang{COMMENT} = "Комментарий";
 
+$lang{PLANNED_WORK} = "работу";
+$lang{OPT_OPEN} = "открыта";
+$lang{NOT_ACCOMPLISHED} = "не выполнена";
+$lang{ACCOMPLISHED} = "выполнена";
+$lang{POSTPONED} = "отложена";
+
+
 
 
 
