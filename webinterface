@@ -1,4 +1,6 @@
 #!perl
+use strict;
+# use warnings fatal => 'all';
 
 =head1 NAME
 
@@ -9,21 +11,25 @@
 our ($html, %FORM, $db, %conf, $admin, %lang);
 
 use Workplanning::db::Workplanning;
-my $Workplanning = Workplanning->new($db, $admin, \%conf);
 use Admins;
-my $Admins = Admins->new($db, \%conf);
 use Users;
-my $Users = Users->new($db, $admin, \%conf);
 use Address;
-my $Address = Address->new($db, $admin, \%conf);
 use Control::Address_mng;
-use Storage;
-my $Storage = Storage->new( $db, $admin, \%conf );
-
+use Msgs;
 use Data::Dumper;
-use strict;
+
+my $Workplanning = Workplanning->works_new($db, $admin, \%conf);
+my $Admins = Admins->new($db, \%conf);
+my $Users = Users->new($db, $admin, \%conf);
+my $Address = Address->new($db, $admin, \%conf);
+my $Msgs = Msgs->new($db, $admin, \%conf);
+
+# use Storage;
+# my $Storage = Storage->new( $db, $admin, \%conf );
+
 
 my @arr_status_option = ($lang{OPT_OPEN}, $lang{NOT_ACCOMPLISHED}, $lang{ACCOMPLISHED}, $lang{POSTPONED});
+my @priority = ($lang{VERY_LOW}, $lang{LOW}, $lang{NORMAL}, $lang{HIGH}, $lang{VERY_HIGH});
 
 #**********************************************************
 
@@ -34,37 +40,101 @@ my @arr_status_option = ($lang{OPT_OPEN}, $lang{NOT_ACCOMPLISHED}, $lang{ACCOMPL
 #**********************************************************
 
 sub work_planning_add {
-  my $datepicker = $html->form_datepicker("DATE_OF_EXECUTION", $DATE);
-  if ($FORM{ACTION} && $FORM{ACTION} eq 'ADD') {
-    $Workplanning->add({ %FORM, BUILDS_ID => $FORM{LOCATION_ID}});
+
+ my %TEMPLATE_ARGS = ();
+ $TEMPLATE_ARGS{DATE_OF_EXECUTION} = $html->form_datepicker("DATE_OF_EXECUTION", $DATE);
+
+  if ($FORM{add}) {
+    $Workplanning->works_add({ %FORM, BUILDS_ID => $FORM{LOCATION_ID}});
 
     $html->message("info", $lang{ADD_MASSAGE}, $lang{OPERATION});
   }
-  if ($FORM{DELETE}) {
-    $Workplanning->del($FORM{DELETE});
+  if ($FORM{del} && $FORM{COMMENTS}) {
+
+    $Workplanning->works_del({ID => $FORM{del}, COMMENTS => $FORM{COMMENTS}});
 
     $html->message("info", $lang{DELETE_MASSAGE}, $lang{OPERATION});
   }
 
-  if ($FORM{ACTION} && $FORM{ACTION} eq 'CHANGE') {
-    $Workplanning->change({ %FORM, BUILDS_ID => $FORM{LOCATION_ID}});
+  if ($FORM{change}) {
+    $Workplanning->works_change({ %FORM, BUILDS_ID => $FORM{LOCATION_ID}});
 
     $html->message("info", $lang{CHANGE_MASSAGE}, $lang{OPERATION});
   }
 
-  my $Builds_list = $Address->address_list({ COLS_NAME => 1});
-  my $Workplanning_list = $Workplanning->list({ COLS_NAME => 1, ID => $FORM{EDIT} });
+  my $builds_list = $Address->address_list({ COLS_NAME => 1});
   if($Workplanning->{errno}){
     $html->message("err", $lang{ERROR}, $lang{NOTABLES});
     return 1;
   }
-  my $builds; 
+  
 
-  if ($FORM{EDIT}) {
+  $TEMPLATE_ARGS{WORKPLANNING_INSTALLATION_SEARCH} = $html->tpl_show(_include('workplanning_subscriber_search_form', "Workplanning"), 
+  {SEARCH => work_planning_usr_search()},
+      {OUTPUT2RETURN => 1 }
+  );
+  if($FORM{MSG_WORKPLANNING}){
 
-    foreach my $item (@$Workplanning_list) {
+    $TEMPLATE_ARGS{SUBMIT_BTN_NAME} = "add";
+    $TEMPLATE_ARGS{SUBMIT_BTN_ACTION} = $lang{ADD};
 
-      my $responsible_select = $html->form_select(
+    my $Msgs_list = $Msgs->messages_list(
+      { 
+        COLS_NAME => 1,
+        PRIORITY_ID => "_SHOW",
+        MSG_ID => $FORM{MSG_WORKPLANNING}
+      }
+    );
+    
+    foreach my $item (@$Msgs_list) {
+      
+      $TEMPLATE_ARGS{RESPONSIBLE_SELECT} = $html->form_select(
+        'AID',
+        {
+          SELECTED => $item->{aid},
+          SEL_LIST => $Admins->list({ MODULE => 'Admins', COLS_NAME => 1 }),
+          SEL_KEY  => 'aid',
+          SEL_VALUE=> 'name',
+          NO_ID => 1,
+          SEL_OPTIONS => {"" => ""}
+        }
+      );
+      $TEMPLATE_ARGS{STATUS_SELECT} = $html->form_select(
+        'STATUS',
+        {
+          SELECTED => 0,
+          SEL_ARRAY => \@arr_status_option,
+          ARRAY_NUM_ID  => 1,
+          SEL_OPTIONS => {"" => ""}
+        }
+      );
+      $TEMPLATE_ARGS{PRIORITY_SELECT} = $html->form_select(
+        'PRIORITY',
+        {
+          SELECTED => $item->{priority_id},
+          SEL_ARRAY => \@priority,
+          ARRAY_NUM_ID  => 1,
+          SEL_OPTIONS => {"" => ""}
+        }
+      );
+      $TEMPLATE_ARGS{BUILDS} = $html->tpl_show(templates('form_address_sel'), { FLAT_CHECK_FREE => 0, FLAT_CHECK_OCCUPIED => 0 }, { OUTPUT2RETURN => 1, ID => 'form_address_sel' });
+      $TEMPLATE_ARGS{CREATOR} = $admin->{AID};
+      $TEMPLATE_ARGS{DESCRIPTION} = $item->{subject};
+      $TEMPLATE_ARGS{SUBSCRIBER} = $item->{user_name};
+      $TEMPLATE_ARGS{UID} = $item->{uid};
+      $TEMPLATE_ARGS{MSGS_ID} = $FORM{MSG_WORKPLANNING};
+      $TEMPLATE_ARGS{DATE_OF_CREATION} = $DATE;
+    }
+  }
+  elsif ($FORM{chg}) {
+
+    $TEMPLATE_ARGS{SUBMIT_BTN_NAME} = "change";
+    $TEMPLATE_ARGS{SUBMIT_BTN_ACTION} = $lang{CHANGE};
+
+    my $workplanning_list = $Workplanning->works_list({ COLS_NAME => 1, ID => $FORM{chg} });
+    foreach my $item (@$workplanning_list) {
+
+      $TEMPLATE_ARGS{RESPONSIBLE_SELECT} = $html->form_select(
         'AID',
         {
           SELECTED => $item->{aid},
@@ -77,12 +147,12 @@ sub work_planning_add {
       );
       
       my $user_login;
-      my $Users_list = $Users->list({ MODULE => 'Users', COLS_NAME => 1, UID => $item->{uid} });
-      foreach my $user_name (@$Users_list) {
+      my $users_list = $Users->list({ MODULE => 'Users', COLS_NAME => 1, UID => $item->{uid} });
+      foreach my $user_name (@$users_list) {
         $user_login = $user_name->{login};
       }
-
-      my $status_select = $html->form_select(
+      $TEMPLATE_ARGS{PRIORITY} = $item->{priority};
+      $TEMPLATE_ARGS{STATUS_SELECT} = $html->form_select(
         'STATUS',
         {
           SELECTED => $item->{status},
@@ -92,15 +162,22 @@ sub work_planning_add {
         }
       );
 
-      $datepicker = $html->form_datepicker("DATE_OF_EXECUTION", $item->{date_of_execution});
-      my $subscriber_search = $html->tpl_show(_include('workplanning_subscriber_search_form', "Workplanning"), { SEARCH => storage_installation_search()}, {OUTPUT2RETURN => 1 });
-      # if($FORM{user_search_form}==1){
-      #   return 1;
-      # }
-      foreach my $builds_item (@$Builds_list) {
+      $TEMPLATE_ARGS{PRIORITY_SELECT} = $html->form_select(
+        'PRIORITY',
+        {
+          SELECTED => $item->{priority},
+          SEL_ARRAY => \@priority,
+          ARRAY_NUM_ID  => 1,
+          SEL_OPTIONS => {"" => ""}
+        }
+      );
+
+      $TEMPLATE_ARGS{DATE_OF_EXECUTION} = $html->form_datepicker("DATE_OF_EXECUTION", $item->{date_of_execution});
+
+      foreach my $builds_item (@$builds_list) {
         if($builds_item->{BUILD_ID} == $item->{builds_id})
         {
-            $builds = $html->tpl_show(templates('form_address_sel'), 
+            $TEMPLATE_ARGS{BUILDS} = $html->tpl_show(templates('form_address_sel'), 
               { 
                 FLAT_CHECK_FREE => 0, 
                 FLAT_CHECK_OCCUPIED => 0, 
@@ -118,35 +195,26 @@ sub work_planning_add {
             );
           }
         }
+      $TEMPLATE_ARGS{ID} = $FORM{chg};
+      $TEMPLATE_ARGS{DATE_OF_CREATION} = $item->{date_of_creation};
+      $TEMPLATE_ARGS{CREATOR} = $admin->{AID};
+      $TEMPLATE_ARGS{DESCRIPTION} = $item->{description};
+      $TEMPLATE_ARGS{BUDGET} = $item->{budget};
+      $TEMPLATE_ARGS{COMMENT} = $item->{comment};
+      $TEMPLATE_ARGS{SUBSCRIBER} = $user_login;
+      $TEMPLATE_ARGS{UID} = $item->{uid};
+      $TEMPLATE_ARGS{MSGS_ID} = $item->{msgs_id};
 
-      $html->tpl_show(
-        _include("workplanning_add_form", "Workplanning"),
-        {
-          ID                => $FORM{EDIT},
-          SUBMIT_BTN_ACTION => "ADD",
-          DATE_OF_CREATION  => $item->{date_of_creation},
-          CREATOR           => $admin->{AID},
-          DATE_OF_EXECUTION => $datepicker,
-          RESPONSIBLE_SELECT=> $responsible_select,
-          STATUS_SELECT     => $status_select,
-          BUILDS            => $builds,
-          DESCRIPTION       => $item->{description},
-          BUDGET            => $item->{budget},
-          COMMENT           => $item->{comment},
-          SUBMIT_BTN_ACTION => $lang{CHANGE},
-          ACTION            => 'CHANGE',
-          SUBSCRIBER        => $user_login,
-          UID               => $item->{uid},
-          STORAGE_INSTALLATION_SEARCH => $subscriber_search
-        }
-      );
     }
   }
-  else{
+  elsif(!$FORM{chg} && !$FORM{MSG_WORKPLANNING}){
+
+    $TEMPLATE_ARGS{SUBMIT_BTN_NAME} = "add";
+    $TEMPLATE_ARGS{SUBMIT_BTN_ACTION} = $lang{ADD};
     
     my $admins_list = $Admins->list({ MODULE => 'Admins', COLS_NAME => 1 });
 
-    my $responsible_select = $html->form_select(
+    $TEMPLATE_ARGS{RESPONSIBLE_SELECT} = $html->form_select(
       'AID',
       {
         SEL_LIST => $admins_list,
@@ -157,7 +225,7 @@ sub work_planning_add {
       }
     );
 
-    my $status_select = $html->form_select(
+    $TEMPLATE_ARGS{STATUS_SELECT} = $html->form_select(
       'STATUS',
       {
         SEL_ARRAY => \@arr_status_option,
@@ -166,62 +234,63 @@ sub work_planning_add {
       }
     );
 
-    my $subscriber_search = $html->tpl_show(_include('workplanning_subscriber_search_form', "Workplanning"), { SEARCH => storage_installation_search()}, {OUTPUT2RETURN => 1 });
+    $TEMPLATE_ARGS{PRIORITY_SELECT} = $html->form_select(
+      'PRIORITY',
+      {
+        SEL_ARRAY => \@priority,
+        ARRAY_NUM_ID  => 1,
+        SEL_OPTIONS => {"" => ""}
+      }
+    );
+
     if($FORM{user_search_form}==1){
       return 1;
     }
-    $builds = $html->tpl_show(templates('form_address_sel'), { FLAT_CHECK_FREE => 0, FLAT_CHECK_OCCUPIED => 0 }, { OUTPUT2RETURN => 1, ID => 'form_address_sel' });
-    $html->tpl_show(
-      _include("workplanning_add_form", "Workplanning"),
-      {
-        DATE_OF_EXECUTION => $datepicker,
-        CREATOR           => $admin->{AID},
-        DATE_OF_CREATION  => $DATE,
-        RESPONSIBLE_SELECT=> $responsible_select,
-        STATUS_SELECT     => $status_select,
-        BUILDS            => $builds,
-        SUBMIT_BTN_ACTION => $lang{ADD},
-        ACTION            => 'ADD',
-        STORAGE_INSTALLATION_SEARCH => $subscriber_search
-      }
-    );
+    $TEMPLATE_ARGS{BUILDS} = $html->tpl_show(templates('form_address_sel'), { FLAT_CHECK_FREE => 0, FLAT_CHECK_OCCUPIED => 0 }, { OUTPUT2RETURN => 1, ID => 'form_address_sel' });
+    $TEMPLATE_ARGS{CREATOR} = $admin->{AID};
+    $TEMPLATE_ARGS{DATE_OF_CREATION} = $DATE;
   }
+  $html->tpl_show(
+        _include("workplanning_add_form", "Workplanning"),
+        {
+          %TEMPLATE_ARGS,
+        }
+      );
 
-  my $Workplanning_list = $Workplanning->list({ COLS_NAME => 1, DESC => "desc" });
-  my $table = $html->table(
+  my $workplanning_list = $Workplanning->works_list({ COLS_NAME => 1, DESC => "desc" });
+  my $workplanning_works = $html->table(
     {
       width   => "100%",
       caption => $lang{WORK_REPORT},
-      title   => [ "ID", $lang{DATE_OF_CREATION}, $lang{DATE_OF_EXECUTION}, $lang{RESPONSIBLE}, $lang{DESCRIPTION}, $lang{STATUS}, "$lang{BUDGET}" . ' $', $lang{SUBSCRIBER}, $lang{LOCATION}, $lang{COMMENT}, $lang{CREATOR}, "" ],
+      title   => [ "ID", $lang{DATE_OF_CREATION}, $lang{DATE_OF_EXECUTION}, $lang{RESPONSIBLE}, $lang{DESCRIPTION}, $lang{STATUS}, $lang{PRIORITY},"$lang{BUDGET}" . ' $', $lang{SUBSCRIBER}, $lang{LOCATION}, $lang{COMMENT}, $lang{CREATOR}, "Привязка", "" ],
       qs      => $pages_qs,
       ID      => "TABLE_ID",
       MENU    => "$lang{SEARCH}:index=" . get_function_index('work_planning') . "&$pages_qs:search",
       export  => 1
     }
   );
-  
-  foreach my $item (@$Workplanning_list) {
+
+  foreach my $item (@$workplanning_list) {
     $Users->pi({ UID => $item->{uid} });
+    my $msgs_indicator = ($item->{msgs_id}) ? $lang{YES} : $lang{NO};
     my $build_name = $Address->build_info({ ID => $item->{builds_id} });
-    my $Admin_name  = $Admins->info($item->{aid});
-    my $del_button  = $html->button("", "index=$index&DELETE=$item->{id}", { class => "text-danger", ADD_ICON => "glyphicon glyphicon-trash" });
-    my $edit_button = $html->button("", "index=$index&EDIT=$item->{id}", { class => "", ADD_ICON => "glyphicon glyphicon-pencil" });
-    $table->addrow(
-      $item->{id},     $item->{date_of_creation}, $item->{date_of_execution},     "$Admin_name->{A_FIO}", $item->{description},                     $arr_status_option[ $item->{status} ],
-      $item->{budget}, $Users->{FIO},             $build_name->{NUMBER}, $item->{comment},       $Admins->info($item->{creator})->{A_FIO}, "$edit_button$del_button"
+    my $admin_name  = ($Admins->info($item->{aid}))->{A_FIO};
+    
+    my $del_button  = $html->button("", "index=$index&del=$item->{id}", { class => "del", MESSAGE => "$lang{DEL} $item->{description}", });
+    my $edit_button = $html->button("", "index=$index&chg=$item->{id}", { class => "", ADD_ICON => "glyphicon glyphicon-pencil" });
+    $workplanning_works->addrow(
+      $item->{id},     $item->{date_of_creation}, $item->{date_of_execution},    $admin_name,            $item->{description},                     $arr_status_option[ $item->{status} ],    @priority[ $item->{priority} ],
+      $item->{budget}, $Users->{FIO},             $build_name->{NUMBER},         $item->{comment},       $Admins->info($item->{creator})->{A_FIO}, $msgs_indicator, "$edit_button$del_button"
     );
   }
-  print $table->show();
+  print $workplanning_works->show();
 }
 
 #**********************************************************
-
 =head2 work_planning() - planning work
 
 =cut
-
 #**********************************************************
-
 sub work_planning {
   my $date_of_execution = $html->form_daterangepicker({ NAME => "DATE_OF_EXECUTION", FORM_NAME => "DATE_OF_EXECUTION"});
   my $date_of_creation = $html->form_daterangepicker({ NAME => "DATE_OF_CREATION", FORM_NAME => "DATE_OF_CREATION"});
@@ -262,7 +331,7 @@ sub work_planning {
     }
   );
 
-  my $Workplanning_list = $Workplanning->list(
+  my $workplanning_list = $Workplanning->works_list(
     { 
       COLS_NAME => 1, 
       DESC => "desc", 
@@ -276,7 +345,7 @@ sub work_planning {
     $html->message("err", $lang{ERROR}, $lang{NOTABLES});
     return 1;
   }
-  my $table = $html->table(
+  my $workplanning_works = $html->table(
     {
       width   => "100%",
       caption => $lang{WORK_REPORT},
@@ -288,36 +357,36 @@ sub work_planning {
     }
   );
 
-  foreach my $item (@$Workplanning_list) {
+  foreach my $item (@$workplanning_list) {
 
     $Users->pi({ UID => $item->{uid} });
     my $build_name = $Address->build_info({ ID => $item->{builds_id} });
 
-    my $Admin_name = $Admins->info($item->{aid});
-    $table->addrow(
-      $item->{id},     $item->{date_of_creation}, $item->{date_of_execution},     "$Admin_name->{A_FIO}", $item->{description},                     $arr_status_option[ $item->{status} ],
+    my $admin_name = $Admins->info($item->{aid});
+    $workplanning_works->addrow(
+      $item->{id},     $item->{date_of_creation}, $item->{date_of_execution},     "$admin_name->{A_FIO}", $item->{description},                     $arr_status_option[ $item->{status} ],
       $item->{budget}, $Users->{FIO},             $build_name->{NUMBER}, $item->{comment},       $Admins->info($item->{creator})->{A_FIO}
     );
   }
 
-  print $table->show();
+  print $workplanning_works->show();
 }
 
 #**********************************************************
-=head2 storage_installation_search()
+=head2 work_planning_usr_search()
 
   Returns:
     HTML code of button to open modal search
 
 =cut
 #**********************************************************
-sub storage_installation_search{
+sub work_planning_usr_search{
   my ($attr) = @_;
   if ( $FORM{user_search_form} ) {
     # First step : Show search form
     if ( $FORM{user_search_form} == 1 ) {
       #      my $address_form = $html->tpl_show( templates('form_address_search'), undef, {OUTPUT2RETURN => 1});
-      my $search_form = $html->tpl_show( _include( 'storage_user_search', 'Storage' ), {
+      my $search_form = $html->tpl_show( _include( 'workplanning_user_search', 'Workplanning' ), {
           ADDRESS_FORM => $html->tpl_show( templates('form_address_search'), undef, { OUTPUT2RETURN => 1 })
         }, { OUTPUT2RETURN => 1 } );
       
@@ -351,7 +420,7 @@ sub storage_installation_search{
         return 2;
       }
       
-      my $table = $html->table(
+      my $workplanning_works = $html->table(
         {
           width   => '100%',
           caption => "$lang{USERS}",
@@ -362,14 +431,14 @@ sub storage_installation_search{
       );
       foreach my $user ( @{$users_list} ) {
         my $login_str = "<button class='btn btn-default search-result' data-uid='$user->{uid}'>$user->{login}</button>";
-        $table->addrow(
+        $workplanning_works->addrow(
           $login_str,
           $user->{fio} || '--',
           $user->{phone} || '--'
         );
       }
       
-      print $table->show() . $script;
+      print $workplanning_works->show() . $script;
       return 2;
     }
   }
@@ -384,9 +453,9 @@ sub storage_installation_search{
       ICON           => 'glyphicon glyphicon-search'
     } );
   
-  if ( $Storage->{UID} ) {
-    $users->info( $Storage->{UID} );
-  };
+  # if ( $Storage->{UID} ) {
+  #   $users->info( $Storage->{UID} );
+  # };
   
   if ( $attr->{NUMERIC} ) {
     return 1;

@@ -13,7 +13,7 @@ my $MODULE = 'Workplanning';
 #**********************************************************
 # Init
 #**********************************************************
-sub new {
+sub works_new {
   my $class = shift;
   my ($db, $admin, $CONF) = @_;
 
@@ -35,11 +35,11 @@ sub new {
 =cut
 
 #**********************************************************
-sub add {
+sub works_add {
   my $self = shift;
   my ($attr) = @_;
 
-  $self->query_add('work_planning', $attr);
+  $self->query_add('workplanning_works', $attr);
 
   return $self;
 }
@@ -51,11 +51,11 @@ sub add {
 =cut
 
 #**********************************************************
-sub del {
+sub works_del {
   my $self = shift;
   my ($id) = @_;
 
-  $self->query_del('work_planning', { ID => $id });
+  $self->query_del('workplanning_works', { ID => $id->{ID}});
 
   return $self->{result};
 }
@@ -67,7 +67,7 @@ sub del {
 =cut
 
 #**********************************************************
-sub list {
+sub works_list {
   my $self = shift;
   my ($attr) = @_;
 
@@ -75,31 +75,33 @@ sub list {
   my $DESC = ($attr->{DESC}) ? $attr->{DESC} : '';
 
   my $WHERE = $self->search_former( $attr, [
-      [ 'ID', 'INT', 'id', 1],
-      [ 'DATE_OF_CREATION', 'DATE', 'date_of_creation', 1 ],
-      [ 'DATE_OF_EXECUTION', 'DATE', 'date_of_execution', 1 ],
-      [ 'AID', 'INT', 'AID', 1 ],
-      [ 'DESCRIPTION', 'STR', 'description', 1 ],
-      [ 'STATUS', 'INT', 'status', 1 ],
-      [ 'BUDGET', 'INT', 'budget', 1 ],
-      [ 'UID', 'INT', 'uid', 1 ],
-      [ 'BUILDS_ID', 'INT', 'builds_id', 1 ],
-      [ 'COMMENT', 'STR', 'comment', 1 ],
-      [ 'CREATOR', 'INT', 'creator', 1 ],
+      [ 'ID', 'INT', 'wp.id', 1],
+      [ 'DATE_OF_CREATION', 'DATE', 'wp.date_of_creation', 1 ],
+      [ 'DATE_OF_EXECUTION', 'DATE', 'wp.date_of_execution', 1 ],
+      [ 'AID', 'INT', 'wp.AID', 1 ],
+      [ 'DESCRIPTION', 'STR', 'wp.description', 1 ],
+      [ 'STATUS', 'INT', 'wp.status', 1 ],
+      [ 'BUDGET', 'INT', 'wp.budget', 1 ],
+      [ 'UID', 'INT', 'wp.uid', 1 ],
+      [ 'BUILDS_ID', 'INT', 'wp.builds_id', 1 ],
+      [ 'COMMENT', 'STR', 'wp.comment', 1 ],
+      [ 'CREATOR', 'INT', 'wp.creator', 1 ],
+      [ 'MSGS_ID', 'INT', 'wp.msgs_id', 1 ],
     ],
     { WHERE => 1,
     }
   );
 
   $self->query2(
-    "SELECT id, date_of_creation, date_of_execution, aid, description, status, budget, uid, builds_id, comment, creator
-     FROM work_planning
+    "SELECT wp.*, a.name 
+     FROM workplanning_works wp 
+     JOIN admins a ON wp.aid=a.aid
      $WHERE;",
     undef,
     { COLS_NAME => 1 }
   );
 
-  return $self->{list};
+  return $self->{list} || [];
 }
 
 
@@ -111,14 +113,14 @@ sub list {
 
 #**********************************************************
 
-sub change {
+sub works_change {
   my $self = shift;
   my ($attr) = @_;
 
   $self->changes2(
     {
       CHANGE_PARAM => 'ID',
-      TABLE        => 'work_planning',
+      TABLE        => 'workplanning_works',
       DATA         => $attr,
     }
   );

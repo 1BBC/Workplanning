@@ -3,10 +3,11 @@
   <div class='box-body'>
         <form name='%SUBMIT_BTN_ACTION%' id='form_%SUBMIT_BTN_ACTION%' method='post' class='form form-horizontal' value='1'>
         <input type='hidden' name='index' value='$index' />
-        <input type='hidden' name='ACTION' value='%ACTION%' />
+<!--         <input type='hidden' name='ACTION' value='%ACTION%' /> -->
         <input type='hidden' name='CREATOR' value='%CREATOR%' />
         <input type='hidden' name='DATE_OF_CREATION' value='%DATE_OF_CREATION%' />
         <input type='hidden' name='ID' value='%ID%' />
+        <input type='hidden' name='MSGS_ID' value='%MSGS_ID%' />
       
       <div class='form-group'>
         <label class='control-label col-md-3' for='DATE_OF_EXECUTION_ID'>_{DATE_OF_EXECUTION}_</label>
@@ -36,6 +37,13 @@
           </div>  
       </div>
 
+      <div class='form-group'>
+          <label class='control-label col-md-3' for='PRIORITY'>_{PRIORITY}_</label>
+          <div class='col-md-9'>
+              %PRIORITY_SELECT%
+          </div>
+      </div>
+
 <!--       <div class='form-group'>
         <label class='control-label col-md-3' for='STATUS'>_{STATUS}_</label>
         <div class='col-md-9'>
@@ -59,7 +67,9 @@
           </div>
       </div>
 
-      <div class='box-footer text-center'>
+
+
+      <div class='box-footer'>
 
 <!--         <div class='form-group'>
           <label class='control-label col-md-2' for='SUBSCRIBER'>_{SUBSCRIBER}_</label>
@@ -74,7 +84,7 @@
             %SUBSCRIBER_SELECT%
           </div>
           <div class='col-md-2'>
-            %STORAGE_INSTALLATION_SEARCH%
+            %WORKPLANNING_INSTALLATION_SEARCH%
           </div>
         </div> -->
 
@@ -86,7 +96,7 @@
                     <input type='text' class='form-control' id='USER_LOGIN' value="%SUBSCRIBER%" readonly='readonly'>
                   </div>
                   <div class='col-md-2'>
-                    %STORAGE_INSTALLATION_SEARCH% 
+                    %WORKPLANNING_INSTALLATION_SEARCH% 
                   </div>
                 </div>
         </div>
@@ -97,8 +107,8 @@
     </form>
 
   </div>
-  <div class='box-footer text-center'>
-      <input type='submit' form='form_%SUBMIT_BTN_ACTION%' class='btn btn-primary' name='submit' value='%SUBMIT_BTN_ACTION%'>
+  <div class='box-footer'>
+      <input type='submit' form='form_%SUBMIT_BTN_ACTION%' class='btn btn-primary' name='%SUBMIT_BTN_NAME%' value='%SUBMIT_BTN_ACTION%'>
   </div>
 </div>
 
